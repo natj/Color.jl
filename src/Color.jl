@@ -1246,9 +1246,6 @@ function colormap(cname::String, N::Int=100; mid=0.5, logscale=false, kvs...)
     if haskey(colormaps_sequential, cname)
         vals = colormaps_sequential[cname]
 
-        #XXX: fix me
-        #setindex does not work for tuples with mixed types
-        #-> change into array(Any)
         p=Array(Any,8)
         for i in 1:8
             p[i] = vals[i]
@@ -1259,10 +1256,6 @@ function colormap(cname::String, N::Int=100; mid=0.5, logscale=false, kvs...)
             if ind > 0
                 p[ind] = v
             end
-            #Better way to write this, but does not work?
-            #if k in [:h, :w, :d, :c, :s, :b, :wcolor, :dcolor]
-            #    @eval $k = $v
-            #end
         end
 
         return sequential_palette(p[1], N, w=p[2], d=p[3], c=p[4], s=p[5], b=p[6], wcolor=p[7], dcolor=p[8], logscale=logscale)
