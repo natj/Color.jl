@@ -5,8 +5,10 @@ import Base.Graphics: set_source, set_source_rgb, GraphicsContext
 
 export ColorValue, color,
        ColourValue, colour,
+       AlphaColorValue,
        weighted_color_mean, hex,
        RGB, HSV, HSL, XYZ, LAB, LUV, LCHab, LCHuv, LMS, RGB24,
+       RGBA, HSVA, HSLA, XYZA, LABA, LUVA, LCHabA, LCHuvA, LMSA, RGBA32,
        protanopic, deuteranopic, tritanopic,
        cie_color_match, colordiff, distinguishable_colors,
        MSC, sequential_palette, diverging_palette, colormap
@@ -14,6 +16,22 @@ export ColorValue, color,
 
 abstract ColorValue
 typealias ColourValue ColorValue
+
+immutable AlphaColorValue{T <: ColorValue}
+    c::T
+    alpha::Float64
+
+    function AlphaColorValue(x1, x2, x3, alpha=1.0)
+        new(T(x1, x2, x3), alpha)
+    end
+    AlphaColorValue(c::T, alpha=1.0) = new(c, alpha)
+end
+
+# Delete once 0.2 is no longer supported:
+if !isdefined(:rad2deg)
+  const rad2deg = radians2degrees
+  const deg2rad = degrees2radians
+end
 
 
 # Common Colorspaces
@@ -158,6 +176,19 @@ immutable RGB24 <: ColorValue
 end
 
 
+# Versions with transparency
+
+typealias RGBA AlphaColorValue{RGB}
+typealias HSVA AlphaColorValue{HSV}
+typealias HSLA AlphaColorValue{HSL}
+typealias XYZA AlphaColorValue{XYZ}
+typealias LABA AlphaColorValue{LAB}
+typealias LCHabA AlphaColorValue{LCHab}
+typealias LUVA AlphaColorValue{LUV}
+typealias LCHuvA AlphaColorValue{LCHuv}
+typealias LMSA AlphaColorValue{LMS}
+typealias RGBA32 AlphaColorValue{RGB24}
+
 # Conversions
 # -----------
 
@@ -166,6 +197,10 @@ for CV in (RGB, HSV, HSL, XYZ, LAB, LUV, LCHab, LCHuv, LMS, RGB24)
     @eval begin
         convert(::Type{$CV}, c::$CV) = c
     end
+end
+
+function convert{T,U}(::Type{AlphaColorValue{T}}, c::AlphaColorValue{U})
+    AlphaColorValue{T}(convert(T, c.c), c.alpha)
 end
 
 # Everything to RGB
@@ -404,7 +439,7 @@ end
 convert(::Type{LAB}, c::XYZ) = convert(LAB, c, WP_DEFAULT)
 
 function convert(::Type{LAB}, c::LCHab)
-    hr = degrees2radians(c.h)
+    hr = deg2rad(c.h)
     LAB(c.l, c.c * cos(hr), c.c * sin(hr))
 end
 
@@ -434,7 +469,7 @@ end
 convert(::Type{LUV}, c::XYZ) = convert(LUV, c, WP_DEFAULT)
 
 function convert(::Type{LUV}, c::LCHuv)
-    hr = degrees2radians(c.h)
+    hr = deg2rad(c.h)
     LUV(c.l, c.c * cos(hr), c.c * sin(hr))
 end
 
@@ -445,7 +480,7 @@ convert(::Type{LUV}, c::ColorValue) = convert(LUV, convert(XYZ, c))
 # -------------------
 
 function convert(::Type{LCHuv}, c::LUV)
-    h = radians2degrees(atan2(c.v, c.u))
+    h = rad2deg(atan2(c.v, c.u))
     while h > 360; h -= 360; end
     while h < 0;   h += 360; end
     LCHuv(c.l, sqrt(c.u^2 + c.v^2), h)
@@ -458,7 +493,7 @@ convert(::Type{LCHuv}, c::ColorValue) = convert(LCHuv, convert(LUV, c))
 # -------------------
 
 function convert(::Type{LCHab}, c::LAB)
-    h = radians2degrees(atan2(c.b, c.a))
+    h = rad2deg(atan2(c.b, c.a))
     while h > 360; h -= 360; end
     while h < 0;   h += 360; end
     LCHab(c.l, sqrt(c.a^2 + c.b^2), h)
@@ -500,7 +535,14 @@ convert(::Type{RGB24}, c::RGB) = RGB24(iround(Uint32, 255*c.r)<<16 +
 
 convert(::Type{RGB24}, c::ColorValue) = convert(RGB24, convert(RGB, c))
 
+
+# To Uint32
+# ----------------
+
 convert(::Type{Uint32}, c::RGB24) = c.color
+
+convert(::Type{Uint32}, ac::RGBA32) = convert(Uint32, ac.c) | iround(Uint32, 255*ac.alpha)<<24
+
 
 # Miscellaneous
 # -------------
